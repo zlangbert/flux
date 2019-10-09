@@ -33,6 +33,7 @@ require (
 	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
+	github.com/spf13/viper v1.1.0
 	github.com/stretchr/testify v1.3.0
 	github.com/weaveworks/common v0.0.0-20190410110702-87611edc252e
 	github.com/weaveworks/go-checkpoint v0.0.0-20170503165305-ebbb8b0518ab
