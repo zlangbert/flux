@@ -28,7 +28,7 @@ jobs:
       - name: Run Buildx
         run: |
           docker buildx build \
-            --platform linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64 \
-            --tag zlangbert/flux:latest-multiarch \
-            --file docker/Dockerfile.build . --push
+            --platform linux/amd64,linux/arm64,linux/arm/v6,linux/arm/v7 \
+            --tag "zlangbert/flux:latest-multiarch,zlangbert/flux:$(git rev-parse --short "$GITHUB_SHA")-multiarch" \
+            --file docker/Dockerfile.build . \
             --push
