@@ -1,4 +1,4 @@
-{{- if .Values.memcached.enabled }}
+{{- if and (eq .Values.memcached.enabled true) (eq .Values.registry.disableScanning false)  }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,6 +26,9 @@ spec:
         app: {{ template "flux.name" . }}-memcached
         release: {{ .Release.Name }}
     spec:
+      {{- if .Values.memcached.priorityClassName }}
+      priorityClassName: {{ .Values.memcached.priorityClassName }}
+      {{- end }}
       {{- if .Values.memcached.pullSecret }}
       imagePullSecrets:
         - name: {{ .Values.memcached.pullSecret }}
@@ -49,8 +52,10 @@ spec:
           containerPort: 11211
         resources:
 {{ toYaml .Values.memcached.resources | indent 10 }}
+        {{- if .Values.memcached.addSecurityContext }}
         securityContext:
 {{ toYaml .Values.memcached.securityContext | indent 10 }}
+        {{- end }}
       nodeSelector:
         beta.kubernetes.io/os: linux
       {{- with .Values.memcached.nodeSelector }}

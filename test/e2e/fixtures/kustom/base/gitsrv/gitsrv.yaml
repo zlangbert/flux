@@ -16,13 +16,13 @@ spec:
         name: gitsrv
     spec:
       containers:
-      - image: stefanprodan/gitsrv:0.1.3
+      - image: fluxcd/gitsrv:v1.0.0
         name: git
         env:
         - name: REPO
           value: "cluster.git"
         - name: TAR_URL
-          value: "https://github.com/fluxcd/flux-get-started/archive/master.tar.gz"
+          value: "https://github.com/fluxcd/flux-get-started/archive/a4bdf4bb92c35cf9e944788368510168ee0bedf4.tar.gz"
         ports:
         - containerPort: 22
           name: ssh

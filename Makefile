@@ -24,6 +24,8 @@ CURRENT_OS=$(shell go env GOOS)
 CURRENT_OS_ARCH=$(shell echo $(CURRENT_OS)-`go env GOARCH`)
 GOBIN?=$(shell echo `go env GOPATH`/bin)
 
+MAIN_GO_MODULE:=$(shell go list -m -f '{{ .Path }}')
+LOCAL_GO_MODULES:=$(shell go list -m -f '{{ .Path }}' all | grep $(MAIN_GO_MODULE))
 godeps=$(shell go list -deps -f '{{if not .Standard}}{{ $$dep := . }}{{range .GoFiles}}{{$$dep.Dir}}/{{.}} {{end}}{{end}}' $(1) | sed "s%${PWD}/%%g")
 
 FLUXD_DEPS:=$(call godeps,./cmd/fluxd/...)
@@ -60,9 +62,9 @@ realclean: clean
 	rm -rf ./cache
 
 test: test/bin/helm test/bin/kubectl test/bin/sops test/bin/kustomize $(GENERATED_TEMPLATES_FILE)
-	PATH="${PWD}/bin:${PWD}/test/bin:${PATH}" go test ${TEST_FLAGS} $(shell go list ./... | sort -u)
+	PATH="${PWD}/bin:${PWD}/test/bin:${PATH}" go test ${TEST_FLAGS} $(shell go list $(patsubst %, %/..., $(LOCAL_GO_MODULES)) | sort -u)
 
-e2e: lint-e2e test/bin/helm test/bin/kubectl test/bin/sops test/e2e/bats $(GOBIN)/fluxctl build/.flux.done
+e2e: lint-e2e test/bin/helm test/bin/kubectl test/bin/sops test/bin/crane test/e2e/bats $(GOBIN)/fluxctl build/.flux.done
 	PATH="${PWD}/test/bin:${PATH}" CURRENT_OS_ARCH=$(CURRENT_OS_ARCH) test/e2e/run.bash
 
 E2E_BATS_FILES := test/e2e/*.bats
@@ -118,8 +120,10 @@ cache/%/kubectl-$(KUBECTL_VERSION): docker/kubectl.version
 
 cache/%/kustomize-$(KUSTOMIZE_VERSION): docker/kustomize.version
 	mkdir -p cache/$*
-	curl --fail -L -o $@ "https://github.com/kubernetes-sigs/kustomize/releases/download/v$(KUSTOMIZE_VERSION)/kustomize_$(KUSTOMIZE_VERSION)_`echo $* | tr - _`"
-	[ $* != "linux-amd64" ] || echo "$(KUSTOMIZE_CHECKSUM)  $@" | shasum -a 256 -c
+	curl --fail -L -o cache/$*/kustomize-$(KUSTOMIZE_VERSION).tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv$(KUSTOMIZE_VERSION)/kustomize_v$(KUSTOMIZE_VERSION)_linux_amd64.tar.gz"
+	echo "$(KUSTOMIZE_CHECKSUM)  cache/$*/kustomize-$(KUSTOMIZE_VERSION).tar.gz" | shasum -a 256 -c
+	tar -m -C ./cache -xzf cache/$*/kustomize-$(KUSTOMIZE_VERSION).tar.gz kustomize
+	mv cache/kustomize $@
 
 cache/%/helm-$(HELM_VERSION):
 	mkdir -p cache/$*
@@ -150,14 +154,15 @@ cache/bats-core-$(BATS_COMMIT).tar.gz:
 	# Use 2opremio's fork until https://github.com/bats-core/bats-core/pull/255 is merged
 	curl --fail -L -o $@ https://github.com/2opremio/bats-core/archive/$(BATS_COMMIT).tar.gz
 
+test/bin/crane:
+	mkdir -p $(@D)
+	go build -o $@ github.com/google/go-containerregistry/cmd/crane
+
 $(GOBIN)/fluxctl: $(FLUXCTL_DEPS) $(GENERATED_TEMPLATES_FILE)
 	go install ./cmd/fluxctl
 
 $(GOBIN)/fluxd: $(FLUXD_DEPS)
 	go install ./cmd/fluxd
-
-integration-test: all
-	test/bin/test-flux
 
 generate-deploy: $(GOBIN)/fluxctl
 	$(GOBIN)/fluxctl install -o ./deploy \
@@ -168,10 +173,19 @@ generate-deploy: $(GOBIN)/fluxctl
 		--namespace flux
 
 $(GENERATED_TEMPLATES_FILE): pkg/install/templates/*.tmpl pkg/install/generate.go
-	go generate ./pkg/install
+	cd ./pkg/install &&  go generate .
 
 check-generated: generate-deploy
 	git diff --exit-code -- deploy/
+
+build-fluxctl: release-bins
+	mkdir -p ./build/docker/fluxctl
+	cp ./build/fluxctl_linux_amd64 ./build/docker/fluxctl/fluxctl
+	cp ./docker/Dockerfile.fluxctl ./build/docker/fluxctl/Dockerfile
+	$(SUDO) docker build -t docker.io/fluxcd/fluxctl:$(IMAGE_TAG) \
+		--build-arg VCS_REF="$(VCS_REF)" \
+		--build-arg BUILD_DATE="$(BUILD_DATE)" \
+		-f ./build/docker/fluxctl/Dockerfile ./build/docker/fluxctl
 
 build-docs:
 	@cd docs && docker build -t flux-docs .

@@ -1,3 +1,29 @@
+## 1.2.0 (2020-02-06)
+
+### Improvements
+
+ - Updated Flux to `1.18.0`
+   [fluxcd/flux#2825](https://github.com/fluxcd/flux/pull/2825)
+ - Add registry disable scanning to chart options
+   [fluxcd/flux#2828](https://github.com/fluxcd/flux/pull/2828)
+ - Add pod labels to chart options
+   [fluxcd/flux#2775](https://github.com/fluxcd/flux/pull/2775)
+ - Add sops decryption to chart options 
+   [fluxcd/flux#2762](https://github.com/fluxcd/flux/pull/2762)
+
+## 1.1.0 (2020-01-14)
+
+### Improvements
+
+ - Updated Flux to `1.17.1`
+   [fluxcd/flux#2738](https://github.com/fluxcd/flux/pull/2738)
+ - Separate Git Poll Interval from Sync Interval
+   [fluxcd/flux#2721](https://github.com/fluxcd/flux/pull/2721)
+ - Namespace whitelisting in helm chart without clusterRole
+   [fluxcd/flux#2719](https://github.com/fluxcd/flux/pull/2719)
+ - Added hostAliases to deployment template
+   [fluxcd/flux#2705](https://github.com/fluxcd/flux/pull/2705)
+
 ## 1.0.0 (2019-12-16)
 
 **Note** The Helm Operator manifests have been **removed** from this chart.

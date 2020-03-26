@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"github.com/fluxcd/flux/pkg/metrics"
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
@@ -48,7 +49,11 @@ func (d *Daemon) Sync(ctx context.Context, started time.Time, newRevision string
 		return err
 	}
 	cancel()
-	defer working.Clean()
+	defer func() {
+		if err := working.Clean(); err != nil {
+			d.Logger.Log("error", fmt.Sprintf("cannot clean sync clone: %s", err))
+		}
+	}()
 
 	// Unseal any secrets if enabled
 	if d.GitSecretEnabled {
@@ -64,6 +69,8 @@ func (d *Daemon) Sync(ctx context.Context, started time.Time, newRevision string
 	if err != nil {
 		return err
 	}
+
+	d.Logger.Log("info", "trying to sync git changes to the cluster", "old", c.oldTagRev, "new", c.newTagRev)
 
 	// Run actual sync of resources on cluster
 	syncSetName := makeGitConfigHash(d.Repo.Origin(), d.GitConfig)
@@ -134,10 +141,10 @@ func getChangeSet(ctx context.Context, state revisionRatchet, headRev string, re
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	if c.oldTagRev != "" {
-		c.commits, err = repo.CommitsBetween(ctx, c.oldTagRev, c.newTagRev, paths...)
+		c.commits, err = repo.CommitsBetween(ctx, c.oldTagRev, c.newTagRev, false, paths...)
 	} else {
 		c.initialSync = true
-		c.commits, err = repo.CommitsBefore(ctx, c.newTagRev, paths...)
+		c.commits, err = repo.CommitsBefore(ctx, c.newTagRev, false, paths...)
 	}
 	cancel()
 

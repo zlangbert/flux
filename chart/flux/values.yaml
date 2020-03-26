@@ -9,13 +9,16 @@ logFormat: fmt
 
 image:
   repository: docker.io/fluxcd/flux
-  tag: 1.17.0
+  tag: 1.18.0
   pullPolicy: IfNotPresent
   pullSecret:
 
 service:
   type: ClusterIP
   port: 3030
+
+# Specifies which namespaces flux should have access to
+allowedNamespaces: []
 
 rbac:
   # Specifies whether RBAC resources should be created
@@ -32,24 +35,31 @@ serviceAccount:
   # Annotations for the Service Account
   annotations: {}
 
-# If create is `false` and no name is given, Flux and the Helm
-# Operator will be restricted to the namespace where they are
-# deployed, and the kubeconfig default context will be set to that
-# namespace.
+# If create is `false` and no name is given, Flux will be restricted to
+# namespaces listed in allowedNamespaces and the namespace where it is
+# deployed, and the kubeconfig default context will be set to that namespace.
 clusterRole:
   create: true
   # The name of a cluster role to bind to; if not set and create is
   # true, a name based on fullname is generated
   name:
 
-resources:
+resources:  
+  # If you do want to specify resource limits, uncomment the following and adjust values
+  # limits:
+  #  cpu: 100m
+  #  memory: 628Mi
   requests:
     cpu: 50m
     memory: 64Mi
 
+priorityClassName: ""
+
 nodeSelector: {}
 
 annotations: {}
+
+podLabels: {}
 
 tolerations: []
 
@@ -80,6 +90,10 @@ sync:
   state: git
   # Duration after which sync operations time out (defaults to 1m)
   timeout:
+  # Controls how often Flux will apply what’s in git, to the cluster, absent new commits.
+  # Reducing this interval below a minute or so may hinder Flux, since syncs can take tens of seconds,
+  # leaving not much time to do other operations.
+  #  interval: "5m"
 
 git:
   # URL of git repo with Kubernetes manifests; e.g. git.url=ssh://git@github.com/fluxcd/flux-get-started
@@ -117,6 +131,12 @@ git:
   # 4. Add ./identity.pub as a deployment key with write access in your Git repo
   # 5. Set the secret name (flux-ssh) below
   secretName: ""
+  # Enables `git-secret` support, as this makes use of known GPG keys
+  # you will need to have imported the paired secret-key with one of
+  # the public-keys which were used in the encryption using
+  # `gpgKeys.secretName`.
+  secret:
+    enabled: false
   # Global Git configuration See https://git-scm.com/docs/git-config for more details.
   config:
     enabled: false
@@ -125,6 +145,10 @@ git:
     # data: |
     #   [credential "https://github.com"]
     #           username = foo
+
+# If `true` SOPS support will be enabled
+sops:
+  enabled: false
 
 registry:
   # Period at which to check for updated images
@@ -139,8 +163,12 @@ registry:
   insecureHosts:
   # Duration to keep cached image info. Must be < 1 month. (Deprecated)
   cacheExpiry:
+  # Disable registry scanning completely
+  disableScanning: false
   # Do not scan images that match these glob expressions
   excludeImage:
+  # Only scan images that match these glob expressions
+  includeImage:
   # Allow usage of (RFC3339) timestamp labels from (canonical) image refs that match these glob expressions
   useTimestampLabels:
   # AWS ECR settings
@@ -169,6 +197,7 @@ memcached:
   verbose: false
   maxItemSize: 5m
   maxMemory: 512
+  addSecurityContext: true
   securityContext:
     runAsUser: 11211
     runAsGroup: 11211
@@ -176,20 +205,27 @@ memcached:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-  resources: {}
-    # If you do want to specify resources, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  resources:
+    # If you do want to specify resource limits, uncomment the following and adjust values
     # limits:
     #  cpu: 100m
     #  memory: 628Mi
-    # requests:
-    #  cpu: 50m
-    #  memory: 512Mi
+    requests:
+     cpu: 50m
+     memory: 64Mi
+  priorityClassName: ""
 
 ssh:
   # Overrides for git over SSH. If you use your own git server, you
   # will likely need to provide a host key for it in this field.
   known_hosts: ""
+  # Specify options for SSH key generation.
+  keygen:
+    # Specify a key format for key generation.
+    # RFC4716” (RFC 4716/SSH2 public or private key),
+    # “PKCS8” (PEM PKCS8 public key) or
+    # “PEM” (PEM public key).
+    format: "RFC4716"
 
 kube:
   # Override for kubectl default config
